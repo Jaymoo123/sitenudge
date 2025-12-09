@@ -317,47 +317,90 @@ st.markdown("---")
 st.markdown('<p class="section-header">A/B Test Results</p>', unsafe_allow_html=True)
 
 tests = [
-    ('Hero Section', 'hero_variant'),
-    ('Social Proof', 'social_proof_variant'),
-    ('Scroll Hook', 'scroll_hook_variant'),
+    ('🦸 Hero Section', 'hero_variant', '#3b82f6', '#f59e0b'),
+    ('👥 Social Proof', 'social_proof_variant', '#8b5cf6', '#10b981'),
+    ('🎣 Scroll Hook', 'scroll_hook_variant', '#06b6d4', '#ef4444'),
 ]
 
-cols = st.columns(3)
-for i, (name, col) in enumerate(tests):
-    with cols[i]:
-        st.markdown(f"**{name}**")
-        stats = calculate_ab_stats(df_filtered, col)
-        
-        if stats is None or len(stats) < 2:
-            st.caption("Insufficient data")
-            continue
-        
-        control = stats[stats['variant'] == 'control'].iloc[0] if 'control' in stats['variant'].values else None
-        test = stats[stats['variant'] == 'test'].iloc[0] if 'test' in stats['variant'].values else None
-        
-        if control is not None and test is not None:
-            lift = ((test['click_rate'] - control['click_rate']) / control['click_rate'] * 100) if control['click_rate'] > 0 else 0
-            
-            # Metrics comparison
-            st.markdown(f"""
-            | | Control | Test |
-            |---|:---:|:---:|
-            | Sessions | {int(control['sessions'])} | {int(test['sessions'])} |
-            | Click Rate | {control['click_rate']:.2f}% | {test['click_rate']:.2f}% |
-            | Time | {control['median_time']:.2f}s | {test['median_time']:.2f}s |
-            | Scroll | {control['median_scroll']:.2f}% | {test['median_scroll']:.2f}% |
-            """)
-            
-            if lift > 5:
-                st.success(f"📈 Test winning: +{lift:.2f}%")
-            elif lift < -5:
-                st.error(f"📉 Control winning: {lift:.2f}%")
-            else:
-                st.info("⚖️ No clear winner")
+for name, variant_col, color1, color2 in tests:
+    stats = calculate_ab_stats(df_filtered, variant_col)
+    
+    if stats is None or len(stats) < 2:
+        continue
+    
+    control = stats[stats['variant'] == 'control'].iloc[0] if 'control' in stats['variant'].values else None
+    test = stats[stats['variant'] == 'test'].iloc[0] if 'test' in stats['variant'].values else None
+    
+    if control is None or test is None:
+        continue
+    
+    lift = ((test['click_rate'] - control['click_rate']) / control['click_rate'] * 100) if control['click_rate'] > 0 else 0
+    
+    st.markdown(f"### {name}")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    # Key metrics
+    with col1:
+        st.metric("Control Sessions", f"{int(control['sessions'])}")
+    with col2:
+        st.metric("Test Sessions", f"{int(test['sessions'])}")
+    with col3:
+        st.metric("Control CTR", f"{control['click_rate']:.2f}%")
+    with col4:
+        st.metric("Test CTR", f"{test['click_rate']:.2f}%")
+    
+    # Charts
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Click Rate comparison
+        fig = go.Figure(go.Bar(
+            x=['Control', 'Test'],
+            y=[control['click_rate'], test['click_rate']],
+            marker=dict(color=[color1, color2]),
+            text=[f"{control['click_rate']:.2f}%", f"{test['click_rate']:.2f}%"],
+            textposition='outside'
+        ))
+        fig.update_layout(**plotly_layout, height=180, title=dict(text="Click Rate %", font=dict(size=12)))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        # Time comparison
+        fig = go.Figure(go.Bar(
+            x=['Control', 'Test'],
+            y=[control['median_time'], test['median_time']],
+            marker=dict(color=[color1, color2]),
+            text=[f"{control['median_time']:.2f}s", f"{test['median_time']:.2f}s"],
+            textposition='outside'
+        ))
+        fig.update_layout(**plotly_layout, height=180, title=dict(text="Median Time (s)", font=dict(size=12)))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col3:
+        # Scroll comparison
+        fig = go.Figure(go.Bar(
+            x=['Control', 'Test'],
+            y=[control['median_scroll'], test['median_scroll']],
+            marker=dict(color=[color1, color2]),
+            text=[f"{control['median_scroll']:.2f}%", f"{test['median_scroll']:.2f}%"],
+            textposition='outside'
+        ))
+        fig.update_layout(**plotly_layout, height=180, title=dict(text="Median Scroll %", font=dict(size=12)))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Winner callout
+    if lift > 5:
+        st.success(f"📈 **Test variant winning** with +{lift:.2f}% lift in click rate")
+    elif lift < -5:
+        st.error(f"📉 **Control variant winning** - Test has {lift:.2f}% lower click rate")
+    else:
+        st.info("⚖️ **No clear winner yet** - Results within margin")
+    
+    st.markdown("---")
 
-# ============== CHARTS ROW ==============
-st.markdown("---")
-col1, col2 = st.columns(2)
+# ============== CHARTS ROW 1 ==============
+col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown('<p class="section-header">Sessions Over Time</p>', unsafe_allow_html=True)
@@ -370,11 +413,11 @@ with col1:
         fig.add_trace(go.Scatter(
             x=time_data['bucket'], y=time_data['sessions'],
             mode='lines+markers', fill='tozeroy',
-            line=dict(color=colors['primary'], width=2),
-            marker=dict(size=5),
-            fillcolor='rgba(59, 130, 246, 0.1)'
+            line=dict(color='#3b82f6', width=3),
+            marker=dict(size=8, color='#60a5fa'),
+            fillcolor='rgba(59, 130, 246, 0.2)'
         ))
-        fig.update_layout(**plotly_layout, height=220, xaxis_title="", yaxis_title="")
+        fig.update_layout(**plotly_layout, height=220)
         st.plotly_chart(fig, use_container_width=True)
 
 with col2:
@@ -383,28 +426,53 @@ with col2:
         device_data = df_filtered['device_type'].value_counts()
         fig = go.Figure(go.Pie(
             labels=device_data.index, values=device_data.values,
-            hole=0.55, marker=dict(colors=[colors['primary'], colors['secondary'], colors['info']]),
-            textinfo='percent+label', textposition='outside',
-            textfont=dict(size=11)
+            hole=0.5, 
+            marker=dict(colors=['#8b5cf6', '#3b82f6', '#06b6d4']),
+            textinfo='percent+label', textposition='inside',
+            textfont=dict(size=12, color='white')
         ))
         fig.update_layout(**plotly_layout, height=220, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
-# ============== LOCATIONS & SCROLL ==============
-col1, col2 = st.columns(2)
+with col3:
+    st.markdown('<p class="section-header">Traffic Sources</p>', unsafe_allow_html=True)
+    if 'utm_source' in df_period.columns:
+        # Get real sessions only
+        real_sessions = df_period[df_period['is_bot'] != True]
+        source_data = real_sessions['utm_source'].value_counts().head(5)
+        
+        color_map = {'tiktok': '#ff0050', 'direct': '#10b981', 'google': '#f59e0b'}
+        bar_colors = [color_map.get(s, '#64748b') for s in source_data.index]
+        
+        fig = go.Figure(go.Bar(
+            x=source_data.index, y=source_data.values,
+            marker=dict(color=bar_colors),
+            text=source_data.values, textposition='outside'
+        ))
+        fig.update_layout(**plotly_layout, height=220)
+        st.plotly_chart(fig, use_container_width=True)
+
+# ============== CHARTS ROW 2 ==============
+st.markdown("---")
+col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown('<p class="section-header">Top Locations</p>', unsafe_allow_html=True)
     if 'city' in df_filtered.columns:
         cities = df_filtered[df_filtered['city'].notna() & (df_filtered['city'] != '')]['city'].value_counts().head(6)
         if len(cities) > 0:
+            # Gradient colors
+            n = len(cities)
+            bar_colors = [f'rgba(59, 130, 246, {0.4 + 0.6*i/n})' for i in range(n)]
+            
             fig = go.Figure(go.Bar(
                 x=cities.values, y=cities.index, orientation='h',
-                marker=dict(color=colors['primary'])
+                marker=dict(color=bar_colors[::-1]),
+                text=cities.values, textposition='outside'
             ))
             layout = plotly_layout.copy()
             layout['yaxis'] = dict(categoryorder='total ascending', gridcolor='rgba(148,163,184,0.1)')
-            fig.update_layout(**layout, height=250)
+            fig.update_layout(**layout, height=220)
             st.plotly_chart(fig, use_container_width=True)
 
 with col2:
@@ -414,10 +482,26 @@ with col2:
         if len(scroll_data) > 0:
             fig = go.Figure(go.Histogram(
                 x=scroll_data, nbinsx=10,
-                marker=dict(color=colors['secondary'])
+                marker=dict(color='#8b5cf6', line=dict(color='#a78bfa', width=1))
             ))
-            fig.update_layout(**plotly_layout, height=200, xaxis_title="Scroll %", yaxis_title="")
+            fig.update_layout(**plotly_layout, height=220, xaxis_title="Scroll %")
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.caption("No scroll data")
+
+with col3:
+    st.markdown('<p class="section-header">Time on Site Distribution</p>', unsafe_allow_html=True)
+    if 'time_on_site_sec' in df_filtered.columns:
+        time_data = df_filtered[(df_filtered['time_on_site_sec'] > 0) & (df_filtered['time_on_site_sec'] <= 120)]['time_on_site_sec']
+        if len(time_data) > 0:
+            fig = go.Figure(go.Histogram(
+                x=time_data, nbinsx=12,
+                marker=dict(color='#10b981', line=dict(color='#34d399', width=1))
+            ))
+            fig.update_layout(**plotly_layout, height=220, xaxis_title="Seconds")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.caption("No time data")
 
 # ============== RECENT SESSIONS ==============
 st.markdown("---")
