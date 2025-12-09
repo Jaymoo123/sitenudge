@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Premium CSS
+# Premium CSS - Compact
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -25,110 +25,76 @@ st.markdown("""
     }
     
     .main .block-container {
-        padding: 2rem 3rem;
+        padding: 1.5rem 2rem;
         max-width: 1400px;
     }
     
-    h1 {
-        font-weight: 700;
-        letter-spacing: -0.5px;
-        color: #f8fafc;
-    }
+    h1 { font-weight: 700; font-size: 1.75rem; color: #f8fafc; margin-bottom: 0.25rem; }
+    h2 { font-weight: 600; font-size: 1.25rem; color: #e2e8f0; }
+    h3 { font-weight: 600; font-size: 1rem; color: #e2e8f0; }
     
-    h2, h3 {
-        font-weight: 600;
-        color: #e2e8f0;
-        letter-spacing: -0.3px;
-    }
-    
-    /* Metric cards */
+    /* Compact metric cards */
     div[data-testid="stMetric"] {
         background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-        border: 1px solid rgba(148, 163, 184, 0.1);
-        border-radius: 16px;
-        padding: 1.25rem 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
     }
     
     div[data-testid="stMetric"] label {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
         font-weight: 500;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #94a3b8;
+        letter-spacing: 0.4px;
+        color: #64748b;
     }
     
     div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-        font-size: 1.875rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: #f1f5f9;
     }
     
+    div[data-testid="stMetric"] [data-testid="stMetricDelta"] {
+        font-size: 0.7rem;
+    }
+    
     /* Section headers */
     .section-header {
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #64748b;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        letter-spacing: 1.2px;
+        color: #475569;
+        margin-bottom: 0.75rem;
+        margin-top: 0.5rem;
     }
     
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-        border-right: 1px solid rgba(148, 163, 184, 0.1);
-    }
-    
-    section[data-testid="stSidebar"] .block-container {
-        padding: 2rem 1.5rem;
-    }
+    /* Tighter spacing */
+    div[data-testid="column"] { padding: 0 0.25rem; }
     
     /* Dividers */
     hr {
         border: none;
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.2), transparent);
-        margin: 2rem 0;
+        background: rgba(148, 163, 184, 0.15);
+        margin: 1.25rem 0;
+    }
+    
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: #0f172a;
+        border-right: 1px solid rgba(148, 163, 184, 0.1);
     }
     
     /* Tables */
-    .stDataFrame {
-        border-radius: 12px;
-        overflow: hidden;
-    }
+    .stDataFrame { font-size: 0.8rem; }
     
-    /* Winner/Loser badges */
-    .winner-badge {
-        background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
+    /* Hide branding */
+    #MainMenu, footer, header {visibility: hidden;}
     
-    .loser-badge {
-        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    
-    /* Captions */
-    .caption {
-        font-size: 0.75rem;
-        color: #64748b;
-    }
-    
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* Smaller markdown */
+    .stMarkdown p { font-size: 0.85rem; margin-bottom: 0.5rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -334,17 +300,17 @@ with col1:
         marker=dict(color=[colors['primary'], colors['secondary'], colors['info'], colors['success']]),
         connector=dict(line=dict(color="#334155", width=1))
     ))
-    fig.update_layout(**plotly_layout, height=220, showlegend=False)
+    fig.update_layout(**plotly_layout, height=180, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
     st.markdown("**Drop-off Rates**")
     if sessions > 0:
-        st.markdown(f"Session → Buy: **{(1 - clicked/sessions)*100:.2f}%** drop")
+        st.markdown(f"Session → Buy: **{(1 - clicked/sessions)*100:.2f}%**")
     if clicked > 0:
-        st.markdown(f"Buy → Checkout: **{(1 - checkout/clicked)*100:.2f}%** drop")
+        st.markdown(f"Buy → Checkout: **{(1 - checkout/clicked)*100:.2f}%**")
     if checkout > 0:
-        st.markdown(f"Checkout → Purchase: **{(1 - purchased/checkout)*100:.2f}%** drop")
+        st.markdown(f"Checkout → Purchase: **{(1 - purchased/checkout)*100:.2f}%**")
 
 # ============== A/B TESTING ==============
 st.markdown("---")
@@ -405,22 +371,23 @@ with col1:
             x=time_data['bucket'], y=time_data['sessions'],
             mode='lines+markers', fill='tozeroy',
             line=dict(color=colors['primary'], width=2),
-            marker=dict(size=6),
+            marker=dict(size=5),
             fillcolor='rgba(59, 130, 246, 0.1)'
         ))
-        fig.update_layout(**plotly_layout, height=280, xaxis_title="", yaxis_title="")
+        fig.update_layout(**plotly_layout, height=220, xaxis_title="", yaxis_title="")
         st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    st.markdown('<p class="section-header">Device & Browser</p>', unsafe_allow_html=True)
+    st.markdown('<p class="section-header">Device Breakdown</p>', unsafe_allow_html=True)
     if 'device_type' in df_filtered.columns:
         device_data = df_filtered['device_type'].value_counts()
         fig = go.Figure(go.Pie(
             labels=device_data.index, values=device_data.values,
-            hole=0.6, marker=dict(colors=[colors['primary'], colors['secondary'], colors['info']]),
-            textinfo='percent+label', textposition='outside'
+            hole=0.55, marker=dict(colors=[colors['primary'], colors['secondary'], colors['info']]),
+            textinfo='percent+label', textposition='outside',
+            textfont=dict(size=11)
         ))
-        fig.update_layout(**plotly_layout, height=280, showlegend=False)
+        fig.update_layout(**plotly_layout, height=220, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
 # ============== LOCATIONS & SCROLL ==============
@@ -433,9 +400,11 @@ with col1:
         if len(cities) > 0:
             fig = go.Figure(go.Bar(
                 x=cities.values, y=cities.index, orientation='h',
-                marker=dict(color=colors['primary'], cornerradius=4)
+                marker=dict(color=colors['primary'])
             ))
-            fig.update_layout(**plotly_layout, height=250, yaxis=dict(categoryorder='total ascending'))
+            layout = plotly_layout.copy()
+            layout['yaxis'] = dict(categoryorder='total ascending', gridcolor='rgba(148,163,184,0.1)')
+            fig.update_layout(**layout, height=250)
             st.plotly_chart(fig, use_container_width=True)
 
 with col2:
@@ -445,9 +414,9 @@ with col2:
         if len(scroll_data) > 0:
             fig = go.Figure(go.Histogram(
                 x=scroll_data, nbinsx=10,
-                marker=dict(color=colors['secondary'], cornerradius=4)
+                marker=dict(color=colors['secondary'])
             ))
-            fig.update_layout(**plotly_layout, height=250, xaxis_title="Scroll %", yaxis_title="Sessions")
+            fig.update_layout(**plotly_layout, height=200, xaxis_title="Scroll %", yaxis_title="")
             st.plotly_chart(fig, use_container_width=True)
 
 # ============== RECENT SESSIONS ==============
