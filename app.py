@@ -6,503 +6,464 @@ from plotly.subplots import make_subplots
 from supabase import create_client
 from datetime import datetime, timedelta
 import pytz
-import numpy as np
 
 # Page config
 st.set_page_config(
     page_title="SiteNudge Analytics",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS
+# Premium CSS
 st.markdown("""
 <style>
-    div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, #1e3a5f 0%, #0d2137 100%);
-        border-radius: 10px;
-        padding: 15px;
-        border: 1px solid #2d4a6f;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    .winner { background: linear-gradient(135deg, #1a4d2e 0%, #0d2137 100%) !important; border-color: #2d6f4a !important; }
-    .loser { background: linear-gradient(135deg, #4d1a1a 0%, #0d2137 100%) !important; border-color: #6f2d2d !important; }
+    
+    .main .block-container {
+        padding: 2rem 3rem;
+        max-width: 1400px;
+    }
+    
+    h1 {
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: #f8fafc;
+    }
+    
+    h2, h3 {
+        font-weight: 600;
+        color: #e2e8f0;
+        letter-spacing: -0.3px;
+    }
+    
+    /* Metric cards */
+    div[data-testid="stMetric"] {
+        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    }
+    
+    div[data-testid="stMetric"] label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #94a3b8;
+    }
+    
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+        font-size: 1.875rem;
+        font-weight: 700;
+        color: #f1f5f9;
+    }
+    
+    /* Section headers */
+    .section-header {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #64748b;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        border-right: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    
+    section[data-testid="stSidebar"] .block-container {
+        padding: 2rem 1.5rem;
+    }
+    
+    /* Dividers */
+    hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.2), transparent);
+        margin: 2rem 0;
+    }
+    
+    /* Tables */
+    .stDataFrame {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    /* Winner/Loser badges */
+    .winner-badge {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .loser-badge {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    /* Captions */
+    .caption {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
+
+# Plotly theme
+plotly_layout = dict(
+    template="plotly_dark",
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    font=dict(family="Inter, sans-serif", color="#94a3b8"),
+    margin=dict(l=20, r=20, t=40, b=20),
+    xaxis=dict(gridcolor='rgba(148,163,184,0.1)', zerolinecolor='rgba(148,163,184,0.1)'),
+    yaxis=dict(gridcolor='rgba(148,163,184,0.1)', zerolinecolor='rgba(148,163,184,0.1)'),
+)
+
+colors = {
+    'primary': '#3b82f6',
+    'secondary': '#8b5cf6', 
+    'success': '#10b981',
+    'warning': '#f59e0b',
+    'danger': '#ef4444',
+    'info': '#06b6d4',
+    'gradient': ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981'],
+}
 
 # Supabase connection
 @st.cache_resource
 def get_supabase():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    return create_client(url, key)
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# Fetch all data
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=15)
 def fetch_all_sessions():
-    supabase = get_supabase()
-    response = supabase.table('session_sessions') \
-        .select('*') \
-        .order('started_at', desc=True) \
-        .execute()
-    
+    response = get_supabase().table('session_sessions').select('*').order('started_at', desc=True).execute()
     if response.data:
         df = pd.DataFrame(response.data)
         df['started_at'] = pd.to_datetime(df['started_at'], utc=True)
         return df
     return pd.DataFrame()
 
-# Calculate metrics for a dataframe
 def calculate_metrics(df):
     if df.empty:
-        return {
-            'sessions': 0, 'avg_time': 0, 'median_time': 0,
-            'avg_scroll': 0, 'median_scroll': 0, 'total_clicks': 0,
-            'clicked_buy': 0, 'initiated_checkout': 0, 'purchased': 0,
-            'sessions_with_time': 0, 'bounce_rate': 0,
-        }
+        return {'sessions': 0, 'median_time': 0, 'median_scroll': 0, 'total_clicks': 0,
+                'clicked_buy': 0, 'initiated_checkout': 0, 'purchased': 0, 'bounce_rate': 0, 'engaged_sessions': 0}
     
-    time_col = df['time_on_site_sec'] if 'time_on_site_sec' in df.columns else pd.Series([0])
+    time_col = df.get('time_on_site_sec', pd.Series([0]))
     valid_time = time_col[(time_col > 0) & (time_col <= 1800)]
-    
-    scroll_col = df['scroll_depth_pct'] if 'scroll_depth_pct' in df.columns else pd.Series([0])
+    scroll_col = df.get('scroll_depth_pct', pd.Series([0]))
     valid_scroll = scroll_col[scroll_col > 0]
-    
     bounces = len(df[(time_col == 0) | (scroll_col == 0)])
+    engaged = len(df[(time_col > 10) & (scroll_col > 25)])
     
     return {
         'sessions': len(df),
-        'avg_time': valid_time.mean() if len(valid_time) > 0 else 0,
         'median_time': valid_time.median() if len(valid_time) > 0 else 0,
-        'avg_scroll': valid_scroll.mean() if len(valid_scroll) > 0 else 0,
         'median_scroll': valid_scroll.median() if len(valid_scroll) > 0 else 0,
-        'total_clicks': df['clicks_total'].sum() if 'clicks_total' in df.columns else 0,
-        'clicked_buy': df['clicked_buy'].sum() if 'clicked_buy' in df.columns else 0,
-        'initiated_checkout': df['initiated_checkout'].sum() if 'initiated_checkout' in df.columns else 0,
-        'purchased': df['purchased'].sum() if 'purchased' in df.columns else 0,
-        'sessions_with_time': len(valid_time),
+        'total_clicks': df.get('clicks_total', pd.Series([0])).sum(),
+        'clicked_buy': df.get('clicked_buy', pd.Series([0])).sum(),
+        'initiated_checkout': df.get('initiated_checkout', pd.Series([0])).sum(),
+        'purchased': df.get('purchased', pd.Series([0])).sum(),
         'bounce_rate': (bounces / len(df) * 100) if len(df) > 0 else 0,
+        'engaged_sessions': engaged,
     }
 
-# Calculate A/B test stats
 def calculate_ab_stats(df, variant_col):
     if variant_col not in df.columns or df.empty:
         return None
-    
     results = []
     for variant in df[variant_col].dropna().unique():
-        variant_df = df[df[variant_col] == variant]
-        metrics = calculate_metrics(variant_df)
-        
-        click_rate = (metrics['clicked_buy'] / metrics['sessions'] * 100) if metrics['sessions'] > 0 else 0
-        checkout_rate = (metrics['initiated_checkout'] / metrics['sessions'] * 100) if metrics['sessions'] > 0 else 0
-        
+        vdf = df[df[variant_col] == variant]
+        m = calculate_metrics(vdf)
+        click_rate = (m['clicked_buy'] / m['sessions'] * 100) if m['sessions'] > 0 else 0
         results.append({
-            'variant': variant,
-            'sessions': metrics['sessions'],
-            'median_time': metrics['median_time'],
-            'median_scroll': metrics['median_scroll'],
-            'clicked_buy': metrics['clicked_buy'],
-            'click_rate': click_rate,
-            'checkout_rate': checkout_rate,
-            'bounce_rate': metrics['bounce_rate'],
+            'variant': variant, 'sessions': m['sessions'], 'median_time': m['median_time'],
+            'median_scroll': m['median_scroll'], 'clicked_buy': m['clicked_buy'],
+            'click_rate': click_rate, 'bounce_rate': m['bounce_rate'], 'engaged': m['engaged_sessions']
         })
-    
     return pd.DataFrame(results)
-
-# Sidebar
-st.sidebar.title("📊 SiteNudge Analytics")
-st.sidebar.markdown("---")
-
-# Time period selector
-st.sidebar.subheader("📅 Time Period")
-period = st.sidebar.selectbox(
-    "Select Period",
-    ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "This Week", "This Month", "All Time"],
-    index=0
-)
-
-compare = st.sidebar.checkbox("Compare to previous period", value=True)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🎯 Filters")
-show_tiktok_only = st.sidebar.checkbox("TikTok traffic only", value=True)
-exclude_bots = st.sidebar.checkbox("Exclude bots", value=True)
-
-st.sidebar.markdown("---")
-auto_refresh = st.sidebar.checkbox("🔄 Auto-refresh (10s)", value=False)
-
-# Load data
-df_all = fetch_all_sessions()
-
-if df_all.empty:
-    st.warning("No data available.")
-    st.stop()
-
-# Calculate date ranges
-now = datetime.now(pytz.UTC)
-today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-yesterday_start = today_start - timedelta(days=1)
-week_start = today_start - timedelta(days=today_start.weekday())
-month_start = today_start.replace(day=1)
-
-if period == "Today":
-    current_start, current_end = today_start, now
-    prev_start, prev_end = yesterday_start, today_start
-    period_label, prev_label = "Today", "Yesterday"
-elif period == "Yesterday":
-    current_start, current_end = yesterday_start, today_start
-    prev_start, prev_end = yesterday_start - timedelta(days=1), yesterday_start
-    period_label, prev_label = "Yesterday", "Day Before"
-elif period == "Last 7 Days":
-    current_start, current_end = now - timedelta(days=7), now
-    prev_start, prev_end = now - timedelta(days=14), now - timedelta(days=7)
-    period_label, prev_label = "Last 7 Days", "Previous 7 Days"
-elif period == "Last 30 Days":
-    current_start, current_end = now - timedelta(days=30), now
-    prev_start, prev_end = now - timedelta(days=60), now - timedelta(days=30)
-    period_label, prev_label = "Last 30 Days", "Previous 30 Days"
-elif period == "This Week":
-    current_start, current_end = week_start, now
-    prev_start, prev_end = week_start - timedelta(days=7), week_start
-    period_label, prev_label = "This Week", "Last Week"
-elif period == "This Month":
-    current_start, current_end = month_start, now
-    prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
-    prev_start, prev_end = prev_month_start, month_start
-    period_label, prev_label = "This Month", "Last Month"
-else:
-    current_start = df_all['started_at'].min() if not df_all.empty else now - timedelta(days=30)
-    current_end = now
-    prev_start, prev_end = current_start, current_start
-    period_label, prev_label = "All Time", "N/A"
-    compare = False
-
-# Filter data
-df_period_all = df_all[(df_all['started_at'] >= current_start) & (df_all['started_at'] <= current_end)]
-
-df_filtered = df_period_all.copy()
-if exclude_bots:
-    df_filtered = df_filtered[df_filtered['is_bot'] != True]
-if show_tiktok_only:
-    df_filtered = df_filtered[df_filtered['utm_source'] == 'tiktok']
-
-df_prev = df_all[(df_all['started_at'] >= prev_start) & (df_all['started_at'] < prev_end)]
-if exclude_bots:
-    df_prev = df_prev[df_prev['is_bot'] != True]
-if show_tiktok_only:
-    df_prev = df_prev[df_prev['utm_source'] == 'tiktok']
-
-current_metrics = calculate_metrics(df_filtered)
-prev_metrics = calculate_metrics(df_prev)
 
 def calc_delta(current, prev):
     if prev == 0: return None
     return ((current - prev) / prev) * 100
 
-# ===================
-# HEADER
-# ===================
-st.title("📈 SiteNudge Analytics")
-st.caption(f"**{period_label}** | Last updated: {now.strftime('%H:%M:%S')}")
+# Load data
+df_all = fetch_all_sessions()
+if df_all.empty:
+    st.error("No data available")
+    st.stop()
 
-# ===================
-# TRAFFIC OVERVIEW
-# ===================
-st.markdown("---")
-st.subheader("🔍 Traffic Overview")
+# Time calculations
+now = datetime.now(pytz.UTC)
+today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-total_all = len(df_period_all)
-total_bots = len(df_period_all[df_period_all['is_bot'] == True])
+# Sidebar
+with st.sidebar:
+    st.markdown("### ⚙️ Settings")
+    st.markdown("---")
+    
+    period = st.selectbox("📅 Time Period", 
+        ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "All Time"], index=0)
+    
+    compare = st.checkbox("📊 Compare periods", value=True)
+    
+    st.markdown("---")
+    st.markdown("**Filters**")
+    show_tiktok_only = st.checkbox("TikTok only", value=True)
+    exclude_bots = st.checkbox("Exclude bots", value=True)
+    
+    st.markdown("---")
+    auto_refresh = st.checkbox("Auto-refresh", value=False)
+    if auto_refresh:
+        st.caption("Refreshing every 15s")
+
+# Period calculations
+periods = {
+    "Today": (today_start, now, today_start - timedelta(days=1), today_start),
+    "Yesterday": (today_start - timedelta(days=1), today_start, today_start - timedelta(days=2), today_start - timedelta(days=1)),
+    "Last 7 Days": (now - timedelta(days=7), now, now - timedelta(days=14), now - timedelta(days=7)),
+    "Last 30 Days": (now - timedelta(days=30), now, now - timedelta(days=60), now - timedelta(days=30)),
+    "All Time": (df_all['started_at'].min(), now, df_all['started_at'].min(), df_all['started_at'].min()),
+}
+current_start, current_end, prev_start, prev_end = periods[period]
+
+# Filter data
+df_period = df_all[(df_all['started_at'] >= current_start) & (df_all['started_at'] <= current_end)]
+df_filtered = df_period.copy()
+if exclude_bots: df_filtered = df_filtered[df_filtered['is_bot'] != True]
+if show_tiktok_only: df_filtered = df_filtered[df_filtered['utm_source'] == 'tiktok']
+
+df_prev = df_all[(df_all['started_at'] >= prev_start) & (df_all['started_at'] < prev_end)]
+if exclude_bots: df_prev = df_prev[df_prev['is_bot'] != True]
+if show_tiktok_only: df_prev = df_prev[df_prev['utm_source'] == 'tiktok']
+
+metrics = calculate_metrics(df_filtered)
+prev_metrics = calculate_metrics(df_prev)
+
+# ============== HEADER ==============
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.title("Analytics Dashboard")
+    filter_tags = []
+    if show_tiktok_only: filter_tags.append("TikTok")
+    if exclude_bots: filter_tags.append("No Bots")
+    st.caption(f"{period} • {' • '.join(filter_tags) if filter_tags else 'All Traffic'} • Updated {now.strftime('%H:%M')}")
+
+# ============== TRAFFIC OVERVIEW ==============
+st.markdown('<p class="section-header">Traffic Overview</p>', unsafe_allow_html=True)
+
+total_all = len(df_period)
+total_bots = len(df_period[df_period['is_bot'] == True])
 total_real = total_all - total_bots
-total_tiktok = len(df_period_all[(df_period_all['utm_source'] == 'tiktok') & (df_period_all['is_bot'] != True)])
+total_tiktok = len(df_period[(df_period['utm_source'] == 'tiktok') & (df_period['is_bot'] != True)])
 
-pct_real = (total_real / total_all * 100) if total_all > 0 else 0
-pct_tiktok = (total_tiktok / total_real * 100) if total_real > 0 else 0
+c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("Total", f"{total_all:,}", help="All sessions including bots")
+c2.metric("Real", f"{total_real:,}", f"{total_bots} bots" if total_bots > 0 else None, delta_color="off")
+c3.metric("TikTok", f"{total_tiktok:,}", f"{(total_tiktok/total_real*100):.2f}% of real" if total_real > 0 else None, delta_color="off")
+c4.metric("Other", f"{total_real - total_tiktok:,}")
+c5.metric("Bot Rate", f"{(total_bots/total_all*100):.2f}%" if total_all > 0 else "0.00%")
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Total Sessions", f"{total_all:,}")
-    st.caption("All traffic including bots")
-with col2:
-    st.metric("Real Sessions", f"{total_real:,}")
-    st.caption(f"**{pct_real:.1f}%** of total | {total_bots} bots")
-with col3:
-    st.metric("TikTok Sessions", f"{total_tiktok:,}")
-    st.caption(f"**{pct_tiktok:.1f}%** of real sessions")
-with col4:
-    other_real = total_real - total_tiktok
-    st.metric("Other Sources", f"{other_real:,}")
-
-# ===================
-# ENGAGEMENT METRICS
-# ===================
+# ============== ENGAGEMENT ==============
 st.markdown("---")
-st.subheader("📊 Engagement Metrics")
-st.caption(f"{'🎵 TikTok Only' if show_tiktok_only else 'All Sources'} | {'🤖 Bots Excluded' if exclude_bots else 'Including Bots'}")
+st.markdown('<p class="section-header">Engagement Metrics</p>', unsafe_allow_html=True)
 
-col1, col2, col3, col4, col5 = st.columns(5)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-with col1:
-    delta = calc_delta(current_metrics['sessions'], prev_metrics['sessions']) if compare else None
-    st.metric("Sessions", f"{current_metrics['sessions']:,}", delta=f"{delta:+.1f}%" if delta else None)
+delta = calc_delta(metrics['sessions'], prev_metrics['sessions']) if compare and period != "All Time" else None
+c1.metric("Sessions", f"{metrics['sessions']:,}", f"{delta:+.2f}%" if delta else None)
 
-with col2:
-    delta = calc_delta(current_metrics['median_time'], prev_metrics['median_time']) if compare else None
-    st.metric("Median Time", f"{current_metrics['median_time']:.0f}s", delta=f"{delta:+.1f}%" if delta else None)
+delta = calc_delta(metrics['median_time'], prev_metrics['median_time']) if compare and period != "All Time" else None
+c2.metric("Median Time", f"{metrics['median_time']:.2f}s", f"{delta:+.2f}%" if delta else None)
 
-with col3:
-    delta = calc_delta(current_metrics['median_scroll'], prev_metrics['median_scroll']) if compare else None
-    st.metric("Median Scroll", f"{current_metrics['median_scroll']:.0f}%", delta=f"{delta:+.1f}%" if delta else None)
+delta = calc_delta(metrics['median_scroll'], prev_metrics['median_scroll']) if compare and period != "All Time" else None
+c3.metric("Median Scroll", f"{metrics['median_scroll']:.2f}%", f"{delta:+.2f}%" if delta else None)
 
-with col4:
-    st.metric("Bounce Rate", f"{current_metrics['bounce_rate']:.1f}%")
+c4.metric("Bounce Rate", f"{metrics['bounce_rate']:.2f}%")
 
-with col5:
-    st.metric("Total Clicks", f"{int(current_metrics['total_clicks']):,}")
+engaged_rate = (metrics['engaged_sessions'] / metrics['sessions'] * 100) if metrics['sessions'] > 0 else 0
+c5.metric("Engaged", f"{engaged_rate:.2f}%", help="Sessions with >10s and >25% scroll")
 
-# ===================
-# CONVERSION FUNNEL
-# ===================
+c6.metric("Clicks", f"{int(metrics['total_clicks']):,}")
+
+# ============== CONVERSION FUNNEL ==============
 st.markdown("---")
-st.subheader("🎯 Conversion Funnel")
+st.markdown('<p class="section-header">Conversion Funnel</p>', unsafe_allow_html=True)
 
-sessions = current_metrics['sessions']
-clicked_buy = int(current_metrics['clicked_buy'])
-initiated_checkout = int(current_metrics['initiated_checkout'])
-purchased = int(current_metrics['purchased'])
+sessions = metrics['sessions']
+clicked = int(metrics['clicked_buy'])
+checkout = int(metrics['initiated_checkout'])
+purchased = int(metrics['purchased'])
 
-pct_clicked = (clicked_buy / sessions * 100) if sessions > 0 else 0
-pct_checkout = (initiated_checkout / sessions * 100) if sessions > 0 else 0
-pct_checkout_of_clicks = (initiated_checkout / clicked_buy * 100) if clicked_buy > 0 else 0
-
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Sessions", f"{sessions:,}")
-    st.caption("100%")
-with col2:
-    st.metric("Clicked Buy", f"{clicked_buy:,}")
-    st.caption(f"**{pct_clicked:.1f}%** of sessions")
-with col3:
-    st.metric("Initiated Checkout", f"{initiated_checkout:,}")
-    st.caption(f"**{pct_checkout:.1f}%** of sessions")
-with col4:
-    st.metric("Purchased", f"{purchased:,}")
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Sessions", f"{sessions:,}")
+c2.metric("Clicked Buy", f"{clicked:,}", f"{(clicked/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off")
+c3.metric("Checkout", f"{checkout:,}", f"{(checkout/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off")
+c4.metric("Purchased", f"{purchased:,}", f"{(purchased/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off")
 
 # Funnel chart
 col1, col2 = st.columns([2, 1])
 with col1:
     fig = go.Figure(go.Funnel(
-        y=['Sessions', 'Clicked Buy', 'Checkout', 'Purchased'],
-        x=[sessions, clicked_buy, initiated_checkout, purchased],
+        y=['Sessions', 'Buy Click', 'Checkout', 'Purchase'],
+        x=[sessions, clicked, checkout, purchased],
         textinfo="value+percent initial",
-        marker=dict(color=['#00d4ff', '#00b4d8', '#0096c7', '#0077b6'])
+        marker=dict(color=[colors['primary'], colors['secondary'], colors['info'], colors['success']]),
+        connector=dict(line=dict(color="#334155", width=1))
     ))
-    fig.update_layout(template="plotly_dark", height=250, margin=dict(l=0, r=0, t=10, b=0))
+    fig.update_layout(**plotly_layout, height=220, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    st.markdown("**Conversion Rates**")
-    st.markdown(f"- Sessions → Buy: **{pct_clicked:.1f}%**")
-    st.markdown(f"- Sessions → Checkout: **{pct_checkout:.1f}%**")
-    st.markdown(f"- Buy → Checkout: **{pct_checkout_of_clicks:.1f}%**")
+    st.markdown("**Drop-off Rates**")
+    if sessions > 0:
+        st.markdown(f"Session → Buy: **{(1 - clicked/sessions)*100:.2f}%** drop")
+    if clicked > 0:
+        st.markdown(f"Buy → Checkout: **{(1 - checkout/clicked)*100:.2f}%** drop")
+    if checkout > 0:
+        st.markdown(f"Checkout → Purchase: **{(1 - purchased/checkout)*100:.2f}%** drop")
 
-# ===================
-# A/B TESTING RESULTS
-# ===================
+# ============== A/B TESTING ==============
 st.markdown("---")
-st.header("🧪 A/B Testing Results")
+st.markdown('<p class="section-header">A/B Test Results</p>', unsafe_allow_html=True)
 
-# Define tests
-ab_tests = [
-    {'name': 'Hero Section', 'variant_col': 'hero_variant', 'test_id_col': 'hero_test_id', 'icon': '🦸'},
-    {'name': 'Social Proof', 'variant_col': 'social_proof_variant', 'test_id_col': 'social_proof_test_id', 'icon': '👥'},
-    {'name': 'Scroll Hook', 'variant_col': 'scroll_hook_variant', 'test_id_col': 'scroll_hook_test_id', 'icon': '🎣'},
+tests = [
+    ('Hero Section', 'hero_variant'),
+    ('Social Proof', 'social_proof_variant'),
+    ('Scroll Hook', 'scroll_hook_variant'),
 ]
 
-for test in ab_tests:
-    st.subheader(f"{test['icon']} {test['name']} Test")
-    
-    stats = calculate_ab_stats(df_filtered, test['variant_col'])
-    
-    if stats is None or stats.empty:
-        st.info(f"No data for {test['name']} test")
-        continue
-    
-    # Determine winner
-    if len(stats) >= 2:
-        winner_idx = stats['click_rate'].idxmax()
-        winner = stats.loc[winner_idx, 'variant']
-    else:
-        winner = None
-    
-    # Display metrics for each variant
-    cols = st.columns(len(stats))
-    for i, (idx, row) in enumerate(stats.iterrows()):
-        with cols[i]:
-            is_winner = row['variant'] == winner and len(stats) >= 2
+cols = st.columns(3)
+for i, (name, col) in enumerate(tests):
+    with cols[i]:
+        st.markdown(f"**{name}**")
+        stats = calculate_ab_stats(df_filtered, col)
+        
+        if stats is None or len(stats) < 2:
+            st.caption("Insufficient data")
+            continue
+        
+        control = stats[stats['variant'] == 'control'].iloc[0] if 'control' in stats['variant'].values else None
+        test = stats[stats['variant'] == 'test'].iloc[0] if 'test' in stats['variant'].values else None
+        
+        if control is not None and test is not None:
+            lift = ((test['click_rate'] - control['click_rate']) / control['click_rate'] * 100) if control['click_rate'] > 0 else 0
             
-            st.markdown(f"### {'🏆 ' if is_winner else ''}{row['variant'].title()}")
+            # Metrics comparison
+            st.markdown(f"""
+            | | Control | Test |
+            |---|:---:|:---:|
+            | Sessions | {int(control['sessions'])} | {int(test['sessions'])} |
+            | Click Rate | {control['click_rate']:.2f}% | {test['click_rate']:.2f}% |
+            | Time | {control['median_time']:.2f}s | {test['median_time']:.2f}s |
+            | Scroll | {control['median_scroll']:.2f}% | {test['median_scroll']:.2f}% |
+            """)
             
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.metric("Sessions", f"{int(row['sessions']):,}")
-                st.metric("Click Rate", f"{row['click_rate']:.1f}%")
-            with col_b:
-                st.metric("Median Time", f"{row['median_time']:.0f}s")
-                st.metric("Median Scroll", f"{row['median_scroll']:.0f}%")
-    
-    # Comparison chart
-    if len(stats) >= 2:
-        fig = make_subplots(rows=1, cols=3, subplot_titles=('Click Rate %', 'Median Time (s)', 'Median Scroll %'))
-        
-        colors = ['#00d4ff' if v == 'control' else '#ff6b6b' for v in stats['variant']]
-        
-        fig.add_trace(go.Bar(x=stats['variant'], y=stats['click_rate'], marker_color=colors, name='Click Rate'), row=1, col=1)
-        fig.add_trace(go.Bar(x=stats['variant'], y=stats['median_time'], marker_color=colors, name='Time', showlegend=False), row=1, col=2)
-        fig.add_trace(go.Bar(x=stats['variant'], y=stats['median_scroll'], marker_color=colors, name='Scroll', showlegend=False), row=1, col=3)
-        
-        fig.update_layout(template="plotly_dark", height=250, margin=dict(l=0, r=0, t=30, b=0), showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Winner callout
-        if winner:
-            control_rate = stats[stats['variant'] == 'control']['click_rate'].values[0] if 'control' in stats['variant'].values else 0
-            test_rate = stats[stats['variant'] == 'test']['click_rate'].values[0] if 'test' in stats['variant'].values else 0
-            
-            if control_rate > 0 and test_rate > 0:
-                lift = ((test_rate - control_rate) / control_rate) * 100
-                if lift > 0:
-                    st.success(f"📈 **Test variant** is winning with **{lift:+.1f}%** lift in click rate")
-                elif lift < 0:
-                    st.error(f"📉 **Control variant** is winning. Test has **{lift:.1f}%** lower click rate")
-                else:
-                    st.info("⚖️ Both variants are performing equally")
-    
-    st.markdown("---")
+            if lift > 5:
+                st.success(f"📈 Test winning: +{lift:.2f}%")
+            elif lift < -5:
+                st.error(f"📉 Control winning: {lift:.2f}%")
+            else:
+                st.info("⚖️ No clear winner")
 
-# ===================
-# DEVICE & LOCATION
-# ===================
-st.header("📱 Device & Location Breakdown")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("Device Types")
-    if 'device_type' in df_filtered.columns:
-        device_counts = df_filtered['device_type'].value_counts().reset_index()
-        device_counts.columns = ['Device', 'Count']
-        
-        fig = px.pie(device_counts, values='Count', names='Device', 
-                     color_discrete_sequence=['#00d4ff', '#ff6b6b', '#feca57'])
-        fig.update_layout(template="plotly_dark", height=300, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, use_container_width=True)
-
-with col2:
-    st.subheader("Top Locations")
-    if 'city' in df_filtered.columns:
-        city_counts = df_filtered[df_filtered['city'].notna() & (df_filtered['city'] != '')]['city'].value_counts().head(8)
-        
-        fig = px.bar(x=city_counts.values, y=city_counts.index, orientation='h',
-                     color=city_counts.values, color_continuous_scale='Viridis')
-        fig.update_layout(template="plotly_dark", height=300, margin=dict(l=0, r=0, t=10, b=0),
-                         yaxis={'categoryorder': 'total ascending'}, showlegend=False, coloraxis_showscale=False)
-        st.plotly_chart(fig, use_container_width=True)
-
-# ===================
-# TIME ANALYSIS
-# ===================
+# ============== CHARTS ROW ==============
 st.markdown("---")
-st.header("⏰ Time Analysis")
-
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Sessions Over Time")
+    st.markdown('<p class="section-header">Sessions Over Time</p>', unsafe_allow_html=True)
     if not df_filtered.empty:
-        if period in ["Today", "Yesterday"]:
-            df_filtered['time_bucket'] = df_filtered['started_at'].dt.floor('H')
-        else:
-            df_filtered['time_bucket'] = df_filtered['started_at'].dt.floor('D')
-        
-        time_data = df_filtered.groupby('time_bucket').agg({
-            'session_id': 'count',
-            'clicked_buy': 'sum'
-        }).reset_index()
-        time_data.columns = ['Time', 'Sessions', 'Buy Clicks']
+        df_temp = df_filtered.copy()
+        df_temp['bucket'] = df_temp['started_at'].dt.floor('H' if period in ['Today', 'Yesterday'] else 'D')
+        time_data = df_temp.groupby('bucket').size().reset_index(name='sessions')
         
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=time_data['Time'], y=time_data['Sessions'], mode='lines+markers',
-                                 name='Sessions', line=dict(color='#00d4ff')))
-        fig.add_trace(go.Bar(x=time_data['Time'], y=time_data['Buy Clicks'], name='Buy Clicks',
-                            marker_color='#ff6b6b', opacity=0.7))
-        fig.update_layout(template="plotly_dark", height=300, margin=dict(l=0, r=0, t=10, b=0))
+        fig.add_trace(go.Scatter(
+            x=time_data['bucket'], y=time_data['sessions'],
+            mode='lines+markers', fill='tozeroy',
+            line=dict(color=colors['primary'], width=2),
+            marker=dict(size=6),
+            fillcolor='rgba(59, 130, 246, 0.1)'
+        ))
+        fig.update_layout(**plotly_layout, height=280, xaxis_title="", yaxis_title="")
         st.plotly_chart(fig, use_container_width=True)
 
 with col2:
-    st.subheader("Hour of Day (All Time)")
-    if not df_all.empty:
-        df_all['hour'] = df_all['started_at'].dt.hour
-        hour_data = df_all[df_all['is_bot'] != True].groupby('hour').size().reset_index(name='sessions')
-        
-        fig = px.bar(hour_data, x='hour', y='sessions', color='sessions',
-                     color_continuous_scale='Blues')
-        fig.update_layout(template="plotly_dark", height=300, margin=dict(l=0, r=0, t=10, b=0),
-                         xaxis_title="Hour (UTC)", coloraxis_showscale=False)
+    st.markdown('<p class="section-header">Device & Browser</p>', unsafe_allow_html=True)
+    if 'device_type' in df_filtered.columns:
+        device_data = df_filtered['device_type'].value_counts()
+        fig = go.Figure(go.Pie(
+            labels=device_data.index, values=device_data.values,
+            hole=0.6, marker=dict(colors=[colors['primary'], colors['secondary'], colors['info']]),
+            textinfo='percent+label', textposition='outside'
+        ))
+        fig.update_layout(**plotly_layout, height=280, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
-# ===================
-# SCROLL & TIME DISTRIBUTION
-# ===================
-st.markdown("---")
-st.header("📊 Engagement Distribution")
-
+# ============== LOCATIONS & SCROLL ==============
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Scroll Depth Distribution")
+    st.markdown('<p class="section-header">Top Locations</p>', unsafe_allow_html=True)
+    if 'city' in df_filtered.columns:
+        cities = df_filtered[df_filtered['city'].notna() & (df_filtered['city'] != '')]['city'].value_counts().head(6)
+        if len(cities) > 0:
+            fig = go.Figure(go.Bar(
+                x=cities.values, y=cities.index, orientation='h',
+                marker=dict(color=colors['primary'], cornerradius=4)
+            ))
+            fig.update_layout(**plotly_layout, height=250, yaxis=dict(categoryorder='total ascending'))
+            st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+    st.markdown('<p class="section-header">Scroll Depth Distribution</p>', unsafe_allow_html=True)
     if 'scroll_depth_pct' in df_filtered.columns:
         scroll_data = df_filtered[df_filtered['scroll_depth_pct'] > 0]['scroll_depth_pct']
         if len(scroll_data) > 0:
-            fig = px.histogram(scroll_data, nbins=10, color_discrete_sequence=['#00d4ff'])
-            fig.update_layout(template="plotly_dark", height=250, margin=dict(l=0, r=0, t=10, b=0),
-                             xaxis_title="Scroll Depth %", yaxis_title="Sessions")
+            fig = go.Figure(go.Histogram(
+                x=scroll_data, nbinsx=10,
+                marker=dict(color=colors['secondary'], cornerradius=4)
+            ))
+            fig.update_layout(**plotly_layout, height=250, xaxis_title="Scroll %", yaxis_title="Sessions")
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No scroll data available")
 
-with col2:
-    st.subheader("Time on Site Distribution")
-    if 'time_on_site_sec' in df_filtered.columns:
-        time_data = df_filtered[(df_filtered['time_on_site_sec'] > 0) & (df_filtered['time_on_site_sec'] <= 300)]['time_on_site_sec']
-        if len(time_data) > 0:
-            fig = px.histogram(time_data, nbins=15, color_discrete_sequence=['#ff6b6b'])
-            fig.update_layout(template="plotly_dark", height=250, margin=dict(l=0, r=0, t=10, b=0),
-                             xaxis_title="Time (seconds)", yaxis_title="Sessions")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No time data available")
-
-# ===================
-# RECENT SESSIONS
-# ===================
+# ============== RECENT SESSIONS ==============
 st.markdown("---")
-st.header("📋 Recent Sessions")
-
-display_cols = ['started_at', 'utm_source', 'device_type', 'city', 'time_on_site_sec', 
-                'scroll_depth_pct', 'clicked_buy', 'hero_variant', 'social_proof_variant']
-display_cols = [c for c in display_cols if c in df_filtered.columns]
+st.markdown('<p class="section-header">Recent Sessions</p>', unsafe_allow_html=True)
 
 if not df_filtered.empty:
-    recent_df = df_filtered[display_cols].head(20).copy()
-    recent_df['started_at'] = recent_df['started_at'].dt.strftime('%H:%M:%S')
-    st.dataframe(recent_df, use_container_width=True, hide_index=True)
-else:
-    st.info("No sessions in selected period")
+    cols = ['started_at', 'device_type', 'city', 'time_on_site_sec', 'scroll_depth_pct', 
+            'clicked_buy', 'hero_variant', 'social_proof_variant']
+    cols = [c for c in cols if c in df_filtered.columns]
+    recent = df_filtered[cols].head(15).copy()
+    recent['started_at'] = recent['started_at'].dt.strftime('%H:%M:%S')
+    st.dataframe(recent, use_container_width=True, hide_index=True)
 
-# Auto-refresh
+# Auto refresh
 if auto_refresh:
     import time
-    time.sleep(10)
+    time.sleep(15)
     st.rerun()
