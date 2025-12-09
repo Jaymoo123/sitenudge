@@ -67,21 +67,34 @@ def calculate_metrics(df):
         return {
             'sessions': 0,
             'avg_time': 0,
+            'median_time': 0,
             'avg_scroll': 0,
+            'median_scroll': 0,
             'total_clicks': 0,
             'clicked_buy': 0,
             'initiated_checkout': 0,
             'purchased': 0,
+            'sessions_with_time': 0,
         }
+    
+    # Filter out outliers (cap at 30 min = 1800 sec) and zeros for time calculation
+    time_col = df['time_on_site_sec'] if 'time_on_site_sec' in df.columns else pd.Series([0])
+    valid_time = time_col[(time_col > 0) & (time_col <= 1800)]
+    
+    scroll_col = df['scroll_depth_pct'] if 'scroll_depth_pct' in df.columns else pd.Series([0])
+    valid_scroll = scroll_col[scroll_col > 0]
     
     return {
         'sessions': len(df),
-        'avg_time': df['time_on_site_sec'].mean() if 'time_on_site_sec' in df.columns else 0,
-        'avg_scroll': df['scroll_depth_pct'].mean() if 'scroll_depth_pct' in df.columns else 0,
+        'avg_time': valid_time.mean() if len(valid_time) > 0 else 0,
+        'median_time': valid_time.median() if len(valid_time) > 0 else 0,
+        'avg_scroll': valid_scroll.mean() if len(valid_scroll) > 0 else 0,
+        'median_scroll': valid_scroll.median() if len(valid_scroll) > 0 else 0,
         'total_clicks': df['clicks_total'].sum() if 'clicks_total' in df.columns else 0,
         'clicked_buy': df['clicked_buy'].sum() if 'clicked_buy' in df.columns else 0,
         'initiated_checkout': df['initiated_checkout'].sum() if 'initiated_checkout' in df.columns else 0,
         'purchased': df['purchased'].sum() if 'purchased' in df.columns else 0,
+        'sessions_with_time': len(valid_time),
     }
 
 # Sidebar
@@ -230,21 +243,23 @@ with col1:
     )
 
 with col2:
-    delta = calc_delta(current_metrics['avg_time'], prev_metrics['avg_time']) if compare else None
+    delta = calc_delta(current_metrics['median_time'], prev_metrics['median_time']) if compare else None
     st.metric(
-        "Avg Time on Site",
-        f"{current_metrics['avg_time']:.1f}s",
+        "Median Time on Site",
+        f"{current_metrics['median_time']:.0f}s",
         delta=f"{delta:+.1f}%" if delta else None,
-        delta_color="normal"
+        delta_color="normal",
+        help=f"Median of {current_metrics['sessions_with_time']} sessions with time data (excludes 0s and outliers >30min)"
     )
 
 with col3:
-    delta = calc_delta(current_metrics['avg_scroll'], prev_metrics['avg_scroll']) if compare else None
+    delta = calc_delta(current_metrics['median_scroll'], prev_metrics['median_scroll']) if compare else None
     st.metric(
-        "Avg Scroll Depth",
-        f"{current_metrics['avg_scroll']:.1f}%",
+        "Median Scroll Depth",
+        f"{current_metrics['median_scroll']:.0f}%",
         delta=f"{delta:+.1f}%" if delta else None,
-        delta_color="normal"
+        delta_color="normal",
+        help="Median scroll depth (excludes 0% bounces)"
     )
 
 with col4:
