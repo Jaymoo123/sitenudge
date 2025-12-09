@@ -1,0 +1,6 @@
+# Don't commit secrets to git (use Streamlit Cloud secrets instead)
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+.env
+
