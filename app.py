@@ -215,21 +215,49 @@ def calc_delta(current, prev):
 
 # Header
 st.title("📈 SiteNudge Analytics")
-
-# Filter status
-filter_text = []
-if show_tiktok_only:
-    filter_text.append("🎵 TikTok Only")
-if exclude_bots:
-    filter_text.append("🤖 Bots Excluded")
-filter_display = " | ".join(filter_text) if filter_text else "All Traffic"
-
-st.caption(f"**{period_label}** | {filter_display} | Last updated: {now.strftime('%H:%M:%S')}")
+st.caption(f"**{period_label}** | Last updated: {now.strftime('%H:%M:%S')}")
 
 st.markdown("---")
 
-# Main Metrics Row
-st.subheader("📊 Key Metrics")
+# Traffic Overview - BEFORE filters
+st.subheader("🔍 Traffic Overview")
+
+# Get unfiltered data for this period
+df_period_all = df_all[(df_all['started_at'] >= current_start) & (df_all['started_at'] <= current_end)]
+
+total_all = len(df_period_all)
+total_bots = len(df_period_all[df_period_all['is_bot'] == True])
+total_real = total_all - total_bots
+total_tiktok = len(df_period_all[(df_period_all['utm_source'] == 'tiktok') & (df_period_all['is_bot'] != True)])
+
+pct_real = (total_real / total_all * 100) if total_all > 0 else 0
+pct_tiktok = (total_tiktok / total_real * 100) if total_real > 0 else 0
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("Total Sessions", f"{total_all:,}")
+    st.caption("All traffic including bots")
+
+with col2:
+    st.metric("Real Sessions", f"{total_real:,}")
+    st.caption(f"**{pct_real:.1f}%** of total | {total_bots} bots excluded")
+
+with col3:
+    st.metric("TikTok Sessions", f"{total_tiktok:,}")
+    st.caption(f"**{pct_tiktok:.1f}%** of real sessions")
+
+with col4:
+    # Show other sources
+    other_real = total_real - total_tiktok
+    st.metric("Other Sources", f"{other_real:,}")
+    st.caption(f"Direct, organic, etc.")
+
+st.markdown("---")
+
+# Engagement Metrics (filtered data)
+st.subheader("📊 Engagement Metrics")
+st.caption(f"{'🎵 TikTok Only' if show_tiktok_only else 'All Sources'} | {'🤖 Bots Excluded' if exclude_bots else 'Including Bots'}")
 
 col1, col2, col3, col4 = st.columns(4)
 
