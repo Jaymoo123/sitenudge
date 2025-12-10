@@ -348,26 +348,15 @@ c3.metric("Checkout", f"{checkout:,}", f"{(checkout/sessions*100):.2f}%" if sess
 c4.metric("Purchased", f"{purchased:,}", f"{(purchased/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off")
 
 # Funnel chart
-col1, col2 = st.columns([2, 1])
-with col1:
-    fig = go.Figure(go.Funnel(
-        y=['Sessions', 'Buy Click', 'Checkout', 'Purchase'],
-        x=[sessions, clicked, checkout, purchased],
-        textinfo="value+percent initial",
-        marker=dict(color=[colors['primary'], colors['secondary'], colors['info'], colors['success']]),
-        connector=dict(line=dict(color="#334155", width=1))
-    ))
-    fig.update_layout(**plotly_layout, height=180, showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
-
-with col2:
-    st.markdown("**Drop-off Rates**")
-    if sessions > 0:
-        st.markdown(f"Session → Buy: **{(1 - clicked/sessions)*100:.2f}%**")
-    if clicked > 0:
-        st.markdown(f"Buy → Checkout: **{(1 - checkout/clicked)*100:.2f}%**")
-    if checkout > 0:
-        st.markdown(f"Checkout → Purchase: **{(1 - purchased/checkout)*100:.2f}%**")
+fig = go.Figure(go.Funnel(
+    y=['Sessions', 'Buy Click', 'Checkout', 'Purchase'],
+    x=[sessions, clicked, checkout, purchased],
+    textinfo="value+percent initial",
+    marker=dict(color=[colors['primary'], colors['secondary'], colors['info'], colors['success']]),
+    connector=dict(line=dict(color="#334155", width=1))
+))
+fig.update_layout(**plotly_layout, height=200, showlegend=False)
+st.plotly_chart(fig, use_container_width=True)
 
 # ============== TREND ANALYSIS ==============
 st.markdown("---")
