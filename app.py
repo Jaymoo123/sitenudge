@@ -221,6 +221,23 @@ with col4:
 with col5:
     compare = st.checkbox("Compare", value=True)
 
+# Test round filter
+st.markdown("---")
+col1, col2 = st.columns([1, 3])
+with col1:
+    # Get available test rounds
+    test_rounds = {
+        "Round 2 (Current)": ("headline-001", "social-copy-001", "cta-copy-001"),
+        "Round 1 (Completed)": ("hero-price-001", "social-proof-001", "scroll-hook-001"),
+        "All Rounds": None,
+    }
+    selected_round = st.selectbox("🧪 Test Round", list(test_rounds.keys()), index=0)
+with col2:
+    if selected_round == "Round 2 (Current)":
+        st.caption("📝 Headline: Product vs Pain | ⭐ Social: Total vs Velocity | 🔘 CTA: Action vs Price-in-button")
+    elif selected_round == "Round 1 (Completed)":
+        st.caption("🦸 Hero: Price visible vs Hook-first | 👥 Social: Hidden vs Visible | 🎣 Scroll: Generic vs Curiosity")
+
 # Sidebar for advanced settings
 with st.sidebar:
     st.markdown("### ⚙️ Advanced Settings")
@@ -254,6 +271,12 @@ if selected_price != "All Prices" and 'price_shown' in df_filtered.columns:
     price_value = float(selected_price.replace('$', ''))
     df_filtered = df_filtered[df_filtered['price_shown'] == price_value]
 
+# Apply test round filter
+selected_test_ids = test_rounds[selected_round]
+if selected_test_ids and 'hero_test_id' in df_filtered.columns:
+    hero_id, social_id, scroll_id = selected_test_ids
+    df_filtered = df_filtered[df_filtered['hero_test_id'] == hero_id]
+
 df_prev = df_all[(df_all['started_at'] >= prev_start) & (df_all['started_at'] < prev_end)]
 if exclude_bots: df_prev = df_prev[df_prev['is_bot'] != True]
 if show_tiktok_only: df_prev = df_prev[df_prev['utm_source'] == 'tiktok']
@@ -262,6 +285,11 @@ if show_tiktok_only: df_prev = df_prev[df_prev['utm_source'] == 'tiktok']
 if selected_price != "All Prices" and 'price_shown' in df_prev.columns:
     price_value = float(selected_price.replace('$', ''))
     df_prev = df_prev[df_prev['price_shown'] == price_value]
+
+# Apply test round filter to comparison period
+if selected_test_ids and 'hero_test_id' in df_prev.columns:
+    hero_id, social_id, scroll_id = selected_test_ids
+    df_prev = df_prev[df_prev['hero_test_id'] == hero_id]
 
 metrics = calculate_metrics(df_filtered)
 prev_metrics = calculate_metrics(df_prev)
@@ -403,13 +431,27 @@ else:
 st.markdown("---")
 st.markdown('<p class="section-header">A/B Test Results</p>', unsafe_allow_html=True)
 
-tests = [
-    ('📝 Headline Copy', 'hero_variant', '#3b82f6', '#f59e0b'),       # Control: Product name | Test: Pain-focused
-    ('⭐ Social Proof Copy', 'social_proof_variant', '#8b5cf6', '#10b981'),  # Control: "200+ sold" | Test: "327 this week"
-    ('🔘 CTA Button Copy', 'scroll_hook_variant', '#06b6d4', '#ef4444'),   # Control: "Get Instant Access" | Test: "Download Now - $17"
-]
+# Test definitions per round
+if selected_round == "Round 2 (Current)":
+    tests = [
+        ('📝 Headline Copy', 'hero_variant', '#3b82f6', '#f59e0b', 'Product Name', 'Pain-Focused'),
+        ('⭐ Social Proof Copy', 'social_proof_variant', '#8b5cf6', '#10b981', '"200+ sold"', '"327 this week"'),
+        ('🔘 CTA Button Copy', 'scroll_hook_variant', '#06b6d4', '#ef4444', '"Get Instant Access"', '"Download Now - $17"'),
+    ]
+elif selected_round == "Round 1 (Completed)":
+    tests = [
+        ('🦸 Hero Layout', 'hero_variant', '#3b82f6', '#f59e0b', 'Price Visible', 'Hook-First'),
+        ('👥 Social Proof', 'social_proof_variant', '#8b5cf6', '#10b981', 'Hidden', 'Stars Visible'),
+        ('🎣 Scroll Hook', 'scroll_hook_variant', '#06b6d4', '#ef4444', 'Generic', 'Curiosity'),
+    ]
+else:  # All Rounds
+    tests = [
+        ('🧪 Hero Test', 'hero_variant', '#3b82f6', '#f59e0b', 'Control', 'Test'),
+        ('🧪 Social Proof Test', 'social_proof_variant', '#8b5cf6', '#10b981', 'Control', 'Test'),
+        ('🧪 Scroll Hook Test', 'scroll_hook_variant', '#06b6d4', '#ef4444', 'Control', 'Test'),
+    ]
 
-for name, variant_col, color1, color2 in tests:
+for name, variant_col, color1, color2, control_label, test_label in tests:
     stats = calculate_ab_stats(df_filtered, variant_col)
     
     if stats is None or len(stats) < 2:
@@ -424,18 +466,19 @@ for name, variant_col, color1, color2 in tests:
     lift = ((test['click_rate'] - control['click_rate']) / control['click_rate'] * 100) if control['click_rate'] > 0 else 0
     
     st.markdown(f"### {name}")
+    st.caption(f"**A:** {control_label} vs **B:** {test_label}")
     
     col1, col2, col3, col4 = st.columns(4)
     
-    # Key metrics
+    # Key metrics with descriptive labels
     with col1:
-        st.metric("Control Sessions", f"{int(control['sessions'])}")
+        st.metric(f"A: {control_label[:15]}", f"{int(control['sessions'])} sess")
     with col2:
-        st.metric("Test Sessions", f"{int(test['sessions'])}")
+        st.metric(f"B: {test_label[:15]}", f"{int(test['sessions'])} sess")
     with col3:
-        st.metric("Control CTR", f"{control['click_rate']:.2f}%")
+        st.metric("A CTR", f"{control['click_rate']:.2f}%")
     with col4:
-        st.metric("Test CTR", f"{test['click_rate']:.2f}%")
+        st.metric("B CTR", f"{test['click_rate']:.2f}%")
     
     # Charts
     col1, col2, col3 = st.columns(3)
@@ -443,7 +486,7 @@ for name, variant_col, color1, color2 in tests:
     with col1:
         # Click Rate comparison
         fig = go.Figure(go.Bar(
-            x=['Control', 'Test'],
+            x=[control_label[:12], test_label[:12]],
             y=[control['click_rate'], test['click_rate']],
             marker=dict(color=[color1, color2]),
             text=[f"{control['click_rate']:.2f}%", f"{test['click_rate']:.2f}%"],
@@ -455,7 +498,7 @@ for name, variant_col, color1, color2 in tests:
     with col2:
         # Time comparison
         fig = go.Figure(go.Bar(
-            x=['Control', 'Test'],
+            x=[control_label[:12], test_label[:12]],
             y=[control['median_time'], test['median_time']],
             marker=dict(color=[color1, color2]),
             text=[f"{control['median_time']:.2f}s", f"{test['median_time']:.2f}s"],
@@ -467,7 +510,7 @@ for name, variant_col, color1, color2 in tests:
     with col3:
         # Scroll comparison
         fig = go.Figure(go.Bar(
-            x=['Control', 'Test'],
+            x=[control_label[:12], test_label[:12]],
             y=[control['median_scroll'], test['median_scroll']],
             marker=dict(color=[color1, color2]),
             text=[f"{control['median_scroll']:.2f}%", f"{test['median_scroll']:.2f}%"],
@@ -478,9 +521,9 @@ for name, variant_col, color1, color2 in tests:
     
     # Winner callout
     if lift > 5:
-        st.success(f"📈 **Test variant winning** with +{lift:.2f}% lift in click rate")
+        st.success(f"📈 **{test_label}** winning with +{lift:.2f}% lift in click rate")
     elif lift < -5:
-        st.error(f"📉 **Control variant winning** - Test has {lift:.2f}% lower click rate")
+        st.error(f"📉 **{control_label}** winning - {test_label} has {lift:.2f}% lower click rate")
     else:
         st.info("⚖️ **No clear winner yet** - Results within margin")
     
