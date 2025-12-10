@@ -240,7 +240,7 @@ col1, col2, col3 = st.columns([1, 2, 2])
 with col1:
     version_filter = st.selectbox(
         "🚀 Version",
-        ["Both Versions", "V2.0 (Outcome-Focused)", "V1.0 (Feature-Focused)"],
+        ["V2.0 (Outcome-Focused)", "Both Versions", "V1.0 (Feature-Focused)"],
         index=0
     )
 with col2:
@@ -255,7 +255,7 @@ with col2:
         v2_count = len(df_all[df_all['version'] == 'V2.0'])
         st.caption(f"📊 Compare both: V1.0 ({v1_count}) vs V2.0 ({v2_count}) • Side-by-side analysis")
 with col3:
-    show_version_comparison = st.checkbox("Show version comparison charts", value=(version_filter == "Both Versions"))
+    show_version_comparison = st.checkbox("Show version comparison charts", value=False)
 
 # Test round filter
 st.markdown("---")
