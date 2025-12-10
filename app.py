@@ -176,12 +176,12 @@ def calc_delta(current, prev):
     if prev == 0: return None
     return ((current - prev) / prev) * 100
 
-def classify_version(df):
+def classify_version(df, v2_launch_time):
     """Add version column: V1.0 (before V2_LAUNCH) or V2.0 (after)"""
     if df.empty or 'started_at' not in df.columns:
         return df
     df = df.copy()
-    df['version'] = df['started_at'].apply(lambda x: 'V2.0' if x >= V2_LAUNCH else 'V1.0')
+    df['version'] = df['started_at'].apply(lambda x: 'V2.0' if x >= v2_launch_time else 'V1.0')
     return df
 
 # Load data
@@ -191,7 +191,7 @@ if df_all.empty:
     st.stop()
 
 # Add version classification
-df_all = classify_version(df_all)
+df_all = classify_version(df_all, V2_LAUNCH)
 
 # Time calculations
 now = datetime.now(pytz.UTC)
