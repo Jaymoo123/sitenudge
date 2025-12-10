@@ -176,25 +176,24 @@ def calc_delta(current, prev):
     if prev == 0: return None
     return ((current - prev) / prev) * 100
 
-# V2.0 Launch timestamp (Dec 10, 2025 - Outcome-focused positioning)
-V2_LAUNCH = datetime(2025, 12, 10, 12, 0, 0, tzinfo=pytz.UTC)  # Noon UTC on Dec 10
-
-def classify_version(df, v2_launch_time):
-    """Add version column: V1.0 (before V2_LAUNCH) or V2.0 (after)"""
-    if df.empty or 'started_at' not in df.columns:
-        return df
-    df = df.copy()
-    df['version'] = df['started_at'].apply(lambda x: 'V2.0' if x >= v2_launch_time else 'V1.0')
-    return df
-
 # Load data
 df_all = fetch_all_sessions()
 if df_all.empty:
     st.error("No data available")
     st.stop()
 
-# Add version classification
-df_all = classify_version(df_all, V2_LAUNCH)
+# Ensure version column exists (fallback for old data)
+if 'version' not in df_all.columns:
+    # Fallback: classify old data
+    V2_LAUNCH = datetime(2025, 12, 10, 12, 0, 0, tzinfo=pytz.UTC)
+    df_all['version'] = df_all['started_at'].apply(lambda x: 'V2.0' if x >= V2_LAUNCH else 'V1.0')
+elif df_all['version'].isna().any():
+    # Fill any missing version values
+    V2_LAUNCH = datetime(2025, 12, 10, 12, 0, 0, tzinfo=pytz.UTC)
+    df_all['version'] = df_all.apply(
+        lambda row: row['version'] if pd.notna(row['version']) else ('V2.0' if row['started_at'] >= V2_LAUNCH else 'V1.0'),
+        axis=1
+    )
 
 # Time calculations
 now = datetime.now(pytz.UTC)
