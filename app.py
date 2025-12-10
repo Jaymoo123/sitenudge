@@ -369,6 +369,263 @@ with col2:
     if checkout > 0:
         st.markdown(f"Checkout → Purchase: **{(1 - purchased/checkout)*100:.2f}%**")
 
+# ============== TREND ANALYSIS ==============
+st.markdown("---")
+st.markdown('<p class="section-header">📈 Trend Analysis - Key Metrics Over Time</p>', unsafe_allow_html=True)
+
+if not df_filtered.empty:
+    # Prepare data with time buckets
+    df_trends = df_filtered.copy()
+    time_bucket = 'H' if period == 'Today' else 'D'
+    df_trends['bucket'] = df_trends['started_at'].dt.floor(time_bucket)
+    
+    # Calculate metrics per time bucket
+    trend_data = df_trends.groupby('bucket').agg({
+        'session_id': 'count',  # Total sessions
+        'time_on_site_sec': [
+            lambda x: x[(x > 0) & (x <= 1800)].median() if len(x[(x > 0) & (x <= 1800)]) > 0 else 0,
+            lambda x: len(x[x > 5]),  # Count of users with >5 sec
+            lambda x: len(x[x > 10]),  # Count of users with >10 sec
+        ],
+        'scroll_depth_pct': [
+            lambda x: x[x > 0].median() if len(x[x > 0]) > 0 else 0,
+            lambda x: len(x[x > 25]),  # Count of users with >25% scroll
+            lambda x: len(x[x > 50]),  # Count of users with >50% scroll
+        ],
+        'clicks_total': 'sum',
+        'clicked_buy': 'sum',
+        'initiated_checkout': 'sum',
+    }).reset_index()
+    
+    # Flatten column names
+    trend_data.columns = ['date', 'sessions', 'median_time', 'users_5sec', 'users_10sec', 
+                          'median_scroll', 'users_25scroll', 'users_50scroll', 
+                          'clicks', 'buy_clicks', 'checkouts']
+    
+    # Calculate rates
+    trend_data['ctr'] = (trend_data['buy_clicks'] / trend_data['sessions'] * 100).fillna(0)
+    trend_data['checkout_rate'] = (trend_data['checkouts'] / trend_data['buy_clicks'] * 100).fillna(0)
+    trend_data['engaged_rate'] = (trend_data['users_10sec'] / trend_data['sessions'] * 100).fillna(0)
+    
+    # Create 4 rows of 2 columns for 8 charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Sessions Over Time**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['sessions'],
+            mode='lines+markers',
+            line=dict(color='#3b82f6', width=3),
+            marker=dict(size=8, color='#60a5fa'),
+            fill='tozeroy',
+            fillcolor='rgba(59, 130, 246, 0.15)',
+            hovertemplate='%{y} sessions<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("**Median Time on Site (seconds)**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['median_time'],
+            mode='lines+markers',
+            line=dict(color='#10b981', width=3),
+            marker=dict(size=8, color='#34d399'),
+            fill='tozeroy',
+            fillcolor='rgba(16, 185, 129, 0.15)',
+            hovertemplate='%{y:.2f}s<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Median Scroll Depth (%)**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['median_scroll'],
+            mode='lines+markers',
+            line=dict(color='#8b5cf6', width=3),
+            marker=dict(size=8, color='#a78bfa'),
+            fill='tozeroy',
+            fillcolor='rgba(139, 92, 246, 0.15)',
+            hovertemplate='%{y:.2f}%<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("**Total Clicks Over Time**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['clicks'],
+            mode='lines+markers',
+            line=dict(color='#f59e0b', width=3),
+            marker=dict(size=8, color='#fbbf24'),
+            fill='tozeroy',
+            fillcolor='rgba(245, 158, 11, 0.15)',
+            hovertemplate='%{y} clicks<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Buy Button Clicks Over Time**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['buy_clicks'],
+            mode='lines+markers',
+            line=dict(color='#06b6d4', width=3),
+            marker=dict(size=8, color='#22d3ee'),
+            fill='tozeroy',
+            fillcolor='rgba(6, 182, 212, 0.15)',
+            hovertemplate='%{y} buy clicks<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("**Checkouts Over Time**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['checkouts'],
+            mode='lines+markers',
+            line=dict(color='#ef4444', width=3),
+            marker=dict(size=8, color='#f87171'),
+            fill='tozeroy',
+            fillcolor='rgba(239, 68, 68, 0.15)',
+            hovertemplate='%{y} checkouts<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Click-Through Rate (CTR) %**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['ctr'],
+            mode='lines+markers',
+            line=dict(color='#ec4899', width=3),
+            marker=dict(size=8, color='#f472b6'),
+            fill='tozeroy',
+            fillcolor='rgba(236, 72, 153, 0.15)',
+            hovertemplate='%{y:.2f}%<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("**Checkout Rate (% of buy clicks)**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['checkout_rate'],
+            mode='lines+markers',
+            line=dict(color='#14b8a6', width=3),
+            marker=dict(size=8, color='#2dd4bf'),
+            fill='tozeroy',
+            fillcolor='rgba(20, 184, 166, 0.15)',
+            hovertemplate='%{y:.2f}%<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Additional engagement metrics
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Users Who Spend Time (>10 sec)**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['users_10sec'],
+            mode='lines+markers',
+            line=dict(color='#22c55e', width=3),
+            marker=dict(size=8, color='#4ade80'),
+            fill='tozeroy',
+            fillcolor='rgba(34, 197, 94, 0.15)',
+            name='Users >10s',
+            hovertemplate='%{y} users<extra></extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['users_5sec'],
+            mode='lines',
+            line=dict(color='#86efac', width=2, dash='dash'),
+            name='Users >5s',
+            hovertemplate='%{y} users<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=True, 
+                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("**Users Who Scroll (>25% depth)**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['users_25scroll'],
+            mode='lines+markers',
+            line=dict(color='#a855f7', width=3),
+            marker=dict(size=8, color='#c084fc'),
+            fill='tozeroy',
+            fillcolor='rgba(168, 85, 247, 0.15)',
+            name='Users >25%',
+            hovertemplate='%{y} users<extra></extra>'
+        ))
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['users_50scroll'],
+            mode='lines',
+            line=dict(color='#d8b4fe', width=2, dash='dash'),
+            name='Users >50%',
+            hovertemplate='%{y} users<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=True,
+                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        st.plotly_chart(fig, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Engagement Rate (% >10 sec)**")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['engaged_rate'],
+            mode='lines+markers',
+            line=dict(color='#0ea5e9', width=3),
+            marker=dict(size=8, color='#38bdf8'),
+            fill='tozeroy',
+            fillcolor='rgba(14, 165, 233, 0.15)',
+            hovertemplate='%{y:.2f}%<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("**Quality Score Trend**")
+        st.caption("Combined metric: (Engaged Rate × CTR) / 100")
+        # Quality score = engagement × conversion
+        trend_data['quality_score'] = (trend_data['engaged_rate'] * trend_data['ctr']) / 100
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=trend_data['date'], y=trend_data['quality_score'],
+            mode='lines+markers',
+            line=dict(color='#f97316', width=3),
+            marker=dict(size=8, color='#fb923c'),
+            fill='tozeroy',
+            fillcolor='rgba(249, 115, 22, 0.15)',
+            hovertemplate='%{y:.2f}<extra></extra>'
+        ))
+        fig.update_layout(**plotly_layout, height=200, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.caption("💡 Track these trends over time to see if your optimizations and A/B test winners are improving performance")
+else:
+    st.caption("No data available for trend analysis")
+
 # ============== PRICE TEST RESULTS ==============
 st.markdown("---")
 st.markdown('<p class="section-header">Price Test Results</p>', unsafe_allow_html=True)
