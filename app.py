@@ -264,9 +264,9 @@ col1, col2 = st.columns([1, 3])
 with col1:
     # Get available test rounds
     test_rounds = {
+        "All Rounds": None,
         "Round 2 (Current)": ("headline-001", "social-copy-001", "cta-copy-001"),
         "Round 1 (Completed)": ("hero-price-001", "social-proof-001", "scroll-hook-001"),
-        "All Rounds": None,
     }
     selected_round = st.selectbox("🧪 Test Round", list(test_rounds.keys()), index=0)
 with col2:
