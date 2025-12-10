@@ -186,30 +186,47 @@ if df_all.empty:
 now = datetime.now(pytz.UTC)
 today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-# Sidebar
-with st.sidebar:
-    st.markdown("### ⚙️ Settings")
-    st.markdown("---")
-    
-    period = st.selectbox("📅 Time Period", 
-        ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "All Time"], index=0)
-    
-    compare = st.checkbox("📊 Compare periods", value=True)
-    
-    st.markdown("---")
-    st.markdown("**Filters**")
-    show_tiktok_only = st.checkbox("TikTok only", value=True)
+# ============== HEADER & FILTERS ==============
+st.title("Analytics Dashboard")
+st.caption(f"Last updated: {now.strftime('%H:%M:%S')}")
+st.markdown("---")
+
+# Primary filters at top
+col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+
+with col1:
+    period = st.radio(
+        "📅 Time Period",
+        ["Today", "Last 7 Days", "Last 30 Days", "All Time"],
+        index=3,  # Default to "All Time"
+        horizontal=True
+    )
+
+with col2:
+    show_tiktok_only = st.checkbox("TikTok only", value=False)
+
+with col3:
     exclude_bots = st.checkbox("Exclude bots", value=True)
+
+with col4:
+    compare = st.checkbox("Compare", value=True)
+
+# Sidebar for advanced settings
+with st.sidebar:
+    st.markdown("### ⚙️ Advanced Settings")
+    st.markdown("---")
+    
+    auto_refresh = st.checkbox("Auto-refresh (15s)", value=False)
     
     st.markdown("---")
-    auto_refresh = st.checkbox("Auto-refresh", value=False)
-    if auto_refresh:
-        st.caption("Refreshing every 15s")
+    st.markdown("**Stats**")
+    st.caption(f"Total DB rows: {len(df_all):,}")
+    st.caption(f"Earliest: {df_all['started_at'].min().strftime('%Y-%m-%d')}")
+    st.caption(f"Latest: {df_all['started_at'].max().strftime('%Y-%m-%d')}")
 
 # Period calculations
 periods = {
     "Today": (today_start, now, today_start - timedelta(days=1), today_start),
-    "Yesterday": (today_start - timedelta(days=1), today_start, today_start - timedelta(days=2), today_start - timedelta(days=1)),
     "Last 7 Days": (now - timedelta(days=7), now, now - timedelta(days=14), now - timedelta(days=7)),
     "Last 30 Days": (now - timedelta(days=30), now, now - timedelta(days=60), now - timedelta(days=30)),
     "All Time": (df_all['started_at'].min(), now, df_all['started_at'].min(), df_all['started_at'].min()),
@@ -229,16 +246,8 @@ if show_tiktok_only: df_prev = df_prev[df_prev['utm_source'] == 'tiktok']
 metrics = calculate_metrics(df_filtered)
 prev_metrics = calculate_metrics(df_prev)
 
-# ============== HEADER ==============
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.title("Analytics Dashboard")
-    filter_tags = []
-    if show_tiktok_only: filter_tags.append("TikTok")
-    if exclude_bots: filter_tags.append("No Bots")
-    st.caption(f"{period} • {' • '.join(filter_tags) if filter_tags else 'All Traffic'} • Updated {now.strftime('%H:%M')}")
-
 # ============== TRAFFIC OVERVIEW ==============
+st.markdown("---")
 st.markdown('<p class="section-header">Traffic Overview</p>', unsafe_allow_html=True)
 
 total_all = len(df_period)
@@ -406,7 +415,7 @@ with col1:
     st.markdown('<p class="section-header">Sessions Over Time</p>', unsafe_allow_html=True)
     if not df_filtered.empty:
         df_temp = df_filtered.copy()
-        df_temp['bucket'] = df_temp['started_at'].dt.floor('H' if period in ['Today', 'Yesterday'] else 'D')
+        df_temp['bucket'] = df_temp['started_at'].dt.floor('H' if period == 'Today' else 'D')
         time_data = df_temp.groupby('bucket').size().reset_index(name='sessions')
         
         fig = go.Figure()
