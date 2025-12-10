@@ -404,9 +404,9 @@ st.markdown("---")
 st.markdown('<p class="section-header">A/B Test Results</p>', unsafe_allow_html=True)
 
 tests = [
-    ('🦸 Hero Section', 'hero_variant', '#3b82f6', '#f59e0b'),
-    ('👥 Social Proof', 'social_proof_variant', '#8b5cf6', '#10b981'),
-    ('🎣 Scroll Hook', 'scroll_hook_variant', '#06b6d4', '#ef4444'),
+    ('📝 Headline Copy', 'hero_variant', '#3b82f6', '#f59e0b'),       # Control: Product name | Test: Pain-focused
+    ('⭐ Social Proof Copy', 'social_proof_variant', '#8b5cf6', '#10b981'),  # Control: "200+ sold" | Test: "327 this week"
+    ('🔘 CTA Button Copy', 'scroll_hook_variant', '#06b6d4', '#ef4444'),   # Control: "Get Instant Access" | Test: "Download Now - $17"
 ]
 
 for name, variant_col, color1, color2 in tests:
