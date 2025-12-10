@@ -353,6 +353,20 @@ c3.metric("TikTok", f"{total_tiktok:,}", f"{(total_tiktok/total_real*100):.2f}% 
 c4.metric("Other", f"{total_real - total_tiktok:,}")
 c5.metric("Bot Rate", f"{(total_bots/total_all*100):.2f}%" if total_all > 0 else "0.00%")
 
+# Unique Visitors Row
+st.markdown("")  # Small spacing
+unique_visitors = df_period['user_id'].nunique() if 'user_id' in df_period.columns else 0
+new_visitors = len(df_period[df_period['visit_number'] == 1]) if 'visit_number' in df_period.columns else 0
+returning_visitors = len(df_period[df_period['visit_number'] > 1]) if 'visit_number' in df_period.columns else 0
+sessions_per_visitor = total_all / unique_visitors if unique_visitors > 0 else 0
+
+u1, u2, u3, u4, u5 = st.columns(5)
+u1.metric("Unique Visitors", f"{unique_visitors:,}", help="Distinct users (tracked via browser ID)")
+u2.metric("New Visitors", f"{new_visitors:,}", f"{(new_visitors/total_all*100):.1f}% of sessions" if total_all > 0 else None, delta_color="off")
+u3.metric("Returning", f"{returning_visitors:,}", f"{(returning_visitors/total_all*100):.1f}% of sessions" if total_all > 0 else None, delta_color="off")
+u4.metric("Sessions/Visitor", f"{sessions_per_visitor:.2f}", help="Average sessions per unique visitor")
+u5.metric("Return Rate", f"{(returning_visitors/total_all*100):.2f}%" if total_all > 0 else "0.00%")
+
 # ============== VERSION COMPARISON ==============
 if show_version_comparison and version_filter == "Both Versions":
     st.markdown("---")
