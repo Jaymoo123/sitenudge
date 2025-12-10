@@ -347,11 +347,11 @@ total_real = total_all - total_bots
 total_tiktok = len(df_period[(df_period['utm_source'] == 'tiktok') & (df_period['is_bot'] != True)])
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Total", f"{total_all:,}", help="All sessions including bots")
-c2.metric("Real", f"{total_real:,}", f"{total_bots} bots" if total_bots > 0 else None, delta_color="off")
-c3.metric("TikTok", f"{total_tiktok:,}", f"{(total_tiktok/total_real*100):.2f}% of real" if total_real > 0 else None, delta_color="off")
-c4.metric("Other", f"{total_real - total_tiktok:,}")
-c5.metric("Bot Rate", f"{(total_bots/total_all*100):.2f}%" if total_all > 0 else "0.00%")
+c1.metric("Total", f"{total_all:,}", help="All page sessions (time period filtered only)")
+c2.metric("Real", f"{total_real:,}", f"{total_bots} bots" if total_bots > 0 else None, delta_color="off", help="Non-bot sessions (excludes crawlers/monitors)")
+c3.metric("TikTok", f"{total_tiktok:,}", f"{(total_tiktok/total_real*100):.2f}% of real" if total_real > 0 else None, delta_color="off", help="Sessions from TikTok ads (utm_source=tiktok)")
+c4.metric("Other", f"{total_real - total_tiktok:,}", help="Non-TikTok real sessions (direct, organic, etc)")
+c5.metric("Bot Rate", f"{(total_bots/total_all*100):.2f}%" if total_all > 0 else "0.00%", help="% of total sessions flagged as bots")
 
 # Unique Visitors Row
 st.markdown("")  # Small spacing
@@ -361,11 +361,11 @@ returning_visitors = len(df_period[df_period['visit_number'] > 1]) if 'visit_num
 sessions_per_visitor = total_all / unique_visitors if unique_visitors > 0 else 0
 
 u1, u2, u3, u4, u5 = st.columns(5)
-u1.metric("Unique Visitors", f"{unique_visitors:,}", help="Distinct users (tracked via browser ID)")
-u2.metric("New Visitors", f"{new_visitors:,}", f"{(new_visitors/total_all*100):.1f}% of sessions" if total_all > 0 else None, delta_color="off")
-u3.metric("Returning", f"{returning_visitors:,}", f"{(returning_visitors/total_all*100):.1f}% of sessions" if total_all > 0 else None, delta_color="off")
-u4.metric("Sessions/Visitor", f"{sessions_per_visitor:.2f}", help="Average sessions per unique visitor")
-u5.metric("Return Rate", f"{(returning_visitors/total_all*100):.2f}%" if total_all > 0 else "0.00%")
+u1.metric("Unique Visitors", f"{unique_visitors:,}", help="Distinct people (tracked via browser localStorage, NOT IP)")
+u2.metric("New Visitors", f"{new_visitors:,}", f"{(new_visitors/total_all*100):.1f}% of sessions" if total_all > 0 else None, delta_color="off", help="Sessions where visit_number = 1 (first-time visitors)")
+u3.metric("Returning", f"{returning_visitors:,}", f"{(returning_visitors/total_all*100):.1f}% of sessions" if total_all > 0 else None, delta_color="off", help="Sessions where visit_number > 1 (repeat visitors)")
+u4.metric("Sessions/Visitor", f"{sessions_per_visitor:.2f}", help="Average # of sessions per unique person (higher = more engagement)")
+u5.metric("Return Rate", f"{(returning_visitors/total_all*100):.2f}%" if total_all > 0 else "0.00%", help="% of sessions from returning visitors (loyalty metric)")
 
 # ============== VERSION COMPARISON ==============
 if show_version_comparison and version_filter == "Both Versions":
@@ -477,20 +477,20 @@ st.markdown('<p class="section-header">Engagement Metrics</p>', unsafe_allow_htm
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 delta = calc_delta(metrics['sessions'], prev_metrics['sessions']) if compare and period != "All Time" else None
-c1.metric("Sessions", f"{metrics['sessions']:,}", f"{delta:+.2f}%" if delta else None)
+c1.metric("Sessions", f"{metrics['sessions']:,}", f"{delta:+.2f}%" if delta else None, help="Session-based (all filters applied: time, price, version, test round, TikTok, bots)")
 
 delta = calc_delta(metrics['median_time'], prev_metrics['median_time']) if compare and period != "All Time" else None
-c2.metric("Median Time", f"{metrics['median_time']:.2f}s", f"{delta:+.2f}%" if delta else None)
+c2.metric("Median Time", f"{metrics['median_time']:.2f}s", f"{delta:+.2f}%" if delta else None, help="Median time per session (excludes 0s & outliers >30min)")
 
 delta = calc_delta(metrics['median_scroll'], prev_metrics['median_scroll']) if compare and period != "All Time" else None
-c3.metric("Median Scroll", f"{metrics['median_scroll']:.2f}%", f"{delta:+.2f}%" if delta else None)
+c3.metric("Median Scroll", f"{metrics['median_scroll']:.2f}%", f"{delta:+.2f}%" if delta else None, help="Median scroll depth per session (0-100%)")
 
-c4.metric("Bounce Rate", f"{metrics['bounce_rate']:.2f}%")
+c4.metric("Bounce Rate", f"{metrics['bounce_rate']:.2f}%", help="% of sessions with 0 time or 0 scroll (instant exits)")
 
 engaged_rate = (metrics['engaged_sessions'] / metrics['sessions'] * 100) if metrics['sessions'] > 0 else 0
-c5.metric("Engaged", f"{engaged_rate:.2f}%", help="Sessions with >10s and >25% scroll")
+c5.metric("Engaged", f"{engaged_rate:.2f}%", help="% of sessions with >10s time AND >25% scroll (quality visits)")
 
-c6.metric("Clicks", f"{int(metrics['total_clicks']):,}")
+c6.metric("Clicks", f"{int(metrics['total_clicks']):,}", help="Total clicks across all filtered sessions")
 
 # ============== CONVERSION FUNNEL ==============
 st.markdown("---")
@@ -502,10 +502,10 @@ checkout = int(metrics['initiated_checkout'])
 purchased = int(metrics['purchased'])
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Sessions", f"{sessions:,}")
-c2.metric("Clicked Buy", f"{clicked:,}", f"{(clicked/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off")
-c3.metric("Checkout", f"{checkout:,}", f"{(checkout/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off")
-c4.metric("Purchased", f"{purchased:,}", f"{(purchased/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off")
+c1.metric("Sessions", f"{sessions:,}", help="Total filtered sessions (all filters applied)")
+c2.metric("Clicked Buy", f"{clicked:,}", f"{(clicked/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off", help="Sessions that clicked any buy button (CTR)")
+c3.metric("Checkout", f"{checkout:,}", f"{(checkout/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off", help="Sessions that landed on Stripe checkout page")
+c4.metric("Purchased", f"{purchased:,}", f"{(purchased/sessions*100):.2f}%" if sessions > 0 else "0.00%", delta_color="off", help="Sessions that completed payment (conversion rate)")
 
 # Funnel chart
 fig = go.Figure(go.Funnel(
