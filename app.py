@@ -192,7 +192,7 @@ st.caption(f"Last updated: {now.strftime('%H:%M:%S')}")
 st.markdown("---")
 
 # Primary filters at top
-col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
 
 with col1:
     period = st.radio(
@@ -203,12 +203,22 @@ with col1:
     )
 
 with col2:
-    show_tiktok_only = st.checkbox("TikTok only", value=False)
+    # Get unique prices from data
+    price_options = ["All Prices"]
+    if 'price_shown' in df_all.columns:
+        unique_prices = df_all['price_shown'].dropna().unique()
+        unique_prices = sorted([p for p in unique_prices if p > 0])
+        price_options += [f"${int(p)}" for p in unique_prices]
+    
+    selected_price = st.selectbox("💰 Price", price_options, index=0)
 
 with col3:
-    exclude_bots = st.checkbox("Exclude bots", value=True)
+    show_tiktok_only = st.checkbox("TikTok only", value=False)
 
 with col4:
+    exclude_bots = st.checkbox("Exclude bots", value=True)
+
+with col5:
     compare = st.checkbox("Compare", value=True)
 
 # Sidebar for advanced settings
@@ -239,9 +249,19 @@ df_filtered = df_period.copy()
 if exclude_bots: df_filtered = df_filtered[df_filtered['is_bot'] != True]
 if show_tiktok_only: df_filtered = df_filtered[df_filtered['utm_source'] == 'tiktok']
 
+# Apply price filter
+if selected_price != "All Prices" and 'price_shown' in df_filtered.columns:
+    price_value = float(selected_price.replace('$', ''))
+    df_filtered = df_filtered[df_filtered['price_shown'] == price_value]
+
 df_prev = df_all[(df_all['started_at'] >= prev_start) & (df_all['started_at'] < prev_end)]
 if exclude_bots: df_prev = df_prev[df_prev['is_bot'] != True]
 if show_tiktok_only: df_prev = df_prev[df_prev['utm_source'] == 'tiktok']
+
+# Apply price filter to comparison period too
+if selected_price != "All Prices" and 'price_shown' in df_prev.columns:
+    price_value = float(selected_price.replace('$', ''))
+    df_prev = df_prev[df_prev['price_shown'] == price_value]
 
 metrics = calculate_metrics(df_filtered)
 prev_metrics = calculate_metrics(df_prev)
