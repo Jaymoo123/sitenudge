@@ -321,6 +321,64 @@ with col2:
     if checkout > 0:
         st.markdown(f"Checkout → Purchase: **{(1 - purchased/checkout)*100:.2f}%**")
 
+# ============== PRICE TEST RESULTS ==============
+st.markdown("---")
+st.markdown('<p class="section-header">Price Test Results</p>', unsafe_allow_html=True)
+
+if 'price_shown' in df_filtered.columns:
+    # Get price breakdown
+    price_stats = df_filtered.groupby('price_shown').agg({
+        'session_id': 'count',
+        'clicked_buy': 'sum',
+        'initiated_checkout': 'sum',
+        'purchased': 'sum',
+        'time_on_site_sec': 'median',
+        'scroll_depth_pct': 'median'
+    }).reset_index()
+    price_stats.columns = ['Price', 'Sessions', 'Clicked Buy', 'Checkouts', 'Purchases', 'Median Time', 'Median Scroll']
+    
+    if len(price_stats) > 0:
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Price comparison chart
+            fig = go.Figure()
+            
+            for i, row in price_stats.iterrows():
+                price = f"${row['Price']:.0f}" if pd.notna(row['Price']) else "Unknown"
+                sessions = row['Sessions']
+                ctr = (row['Clicked Buy'] / sessions * 100) if sessions > 0 else 0
+                
+                fig.add_trace(go.Bar(
+                    name=price,
+                    x=['Sessions', 'CTR %', 'Checkout %'],
+                    y=[sessions, ctr, (row['Checkouts'] / sessions * 100) if sessions > 0 else 0],
+                    text=[f"{sessions}", f"{ctr:.2f}%", f"{(row['Checkouts'] / sessions * 100):.2f}%" if sessions > 0 else "0%"],
+                    textposition='outside',
+                    marker_color='#10b981' if row['Price'] == 17 else '#3b82f6'
+                ))
+            
+            fig.update_layout(**plotly_layout, height=220, barmode='group', title=dict(text="Performance by Price Point", font=dict(size=12)))
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.markdown("**Price Breakdown**")
+            for _, row in price_stats.iterrows():
+                price = f"${row['Price']:.0f}" if pd.notna(row['Price']) else "Unknown"
+                sessions = row['Sessions']
+                ctr = (row['Clicked Buy'] / sessions * 100) if sessions > 0 else 0
+                purchases = int(row['Purchases'])
+                
+                st.markdown(f"""
+                **{price}**: {sessions} sessions
+                - CTR: {ctr:.2f}%
+                - Purchases: {purchases}
+                """)
+    else:
+        st.caption("No price data available yet")
+else:
+    st.caption("Price tracking not yet active - new sessions will include price data")
+
 # ============== A/B TESTING ==============
 st.markdown("---")
 st.markdown('<p class="section-header">A/B Test Results</p>', unsafe_allow_html=True)
