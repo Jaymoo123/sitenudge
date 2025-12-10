@@ -176,6 +176,9 @@ def calc_delta(current, prev):
     if prev == 0: return None
     return ((current - prev) / prev) * 100
 
+# V2.0 Launch timestamp (Dec 10, 2025 - Outcome-focused positioning)
+V2_LAUNCH = datetime(2025, 12, 10, 12, 0, 0, tzinfo=pytz.UTC)  # Noon UTC on Dec 10
+
 def classify_version(df, v2_launch_time):
     """Add version column: V1.0 (before V2_LAUNCH) or V2.0 (after)"""
     if df.empty or 'started_at' not in df.columns:
@@ -196,9 +199,6 @@ df_all = classify_version(df_all, V2_LAUNCH)
 # Time calculations
 now = datetime.now(pytz.UTC)
 today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-
-# V2.0 Launch timestamp (Dec 10, 2025 - Outcome-focused positioning)
-V2_LAUNCH = datetime(2025, 12, 10, 12, 0, 0, tzinfo=pytz.UTC)  # Noon UTC on Dec 10
 
 # ============== HEADER & FILTERS ==============
 st.title("Analytics Dashboard")
